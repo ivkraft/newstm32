@@ -1,0 +1,39 @@
+# Object files
+*.o
+*.ko
+*.obj
+*.elf
+
+# Libraries
+*.lib
+*.a
+*.la
+*.lo
+
+# Shared objects (inc. Windows DLLs)
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Executables and other build outputs
+*.exe
+*.out
+*.app
+*.hex
+*.map
+[Dd]ebug/
+[Rr]elease/
+
+# Eclipse CDT project files and user-specific settings
+.cproject
+.project
+.settings/
+.mxproject
+
+# Launch files (contain absolute paths/user-specific ST-Link info)
+*.launch
+
+# Optional: if generated within the project root
+/Drivers/
+/Middlewares/
