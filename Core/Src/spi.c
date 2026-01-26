@@ -21,7 +21,17 @@
 #include "spi.h"
 
 /* USER CODE BEGIN 0 */
+#define SELECT() HAL_GPIO_WritePin(LCD_CS_GPIO_Port, LCD_CS_Pin, GPIO_PIN_RESET) // CS low
+#define DESELECT() HAL_GPIO_WritePin(LCD_CS_GPIO_Port, LCD_CS_Pin, GPIO_PIN_SET) // CS high
 
+#define COMMAND() HAL_GPIO_WritePin(LCD_DC_GPIO_Port, LCD_DC_Pin, GPIO_PIN_RESET) // DC=0
+#define DATA() HAL_GPIO_WritePin(LCD_DC_GPIO_Port, LCD_DC_Pin, GPIO_PIN_SET)	  // DC=1
+
+#define LCD_RST_L() HAL_GPIO_WritePin(LCD_RST_GPIO_Port, LCD_RST_Pin, GPIO_PIN_RESET)
+#define LCD_RST_H() HAL_GPIO_WritePin(LCD_RST_GPIO_Port, LCD_RST_Pin, GPIO_PIN_SET)
+
+#define LCD_BL_ON() HAL_GPIO_WritePin(LCD_BL_GPIO_Port, LCD_BL_Pin, GPIO_PIN_SET)
+#define LCD_BL_OFF() HAL_GPIO_WritePin(LCD_BL_GPIO_Port, LCD_BL_Pin, GPIO_PIN_RESET)
 /* USER CODE END 0 */
 
 SPI_HandleTypeDef hspi3;
@@ -137,4 +147,96 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef* spiHandle)
 
 /* USER CODE BEGIN 1 */
 
+static inline void SPI_transmit(const uint8_t *data, uint16_t length)
+{
+	HAL_SPI_Transmit(&hspi3, (uint8_t *)data, length, HAL_MAX_DELAY);
+}
+
+// ---- ILI write helpers ----
+static inline void ILI9844_write_command(uint8_t cmd)
+{
+	SELECT();
+	COMMAND();
+	SPI_transmit(&cmd, 1);
+	DESELECT();
+}
+
+static inline void ILI9844_write_data8(uint8_t data)
+{
+	SELECT();
+	DATA();
+	SPI_transmit(&data, 1);
+	DESELECT();
+}
+
+
+
+// ---- init reset sequence ----
+static inline void LCD_hw_reset(void)
+{
+	LCD_BL_ON();
+	LCD_RST_H();
+	HAL_Delay(10);
+	LCD_RST_L();
+	HAL_Delay(100);
+
+	LCD_RST_H();
+	HAL_Delay(200);
+}
+
+void ILI9844_SPI_init(void)
+{
+
+	// В этом примере держим CS активным постоянно (как в найденном коде)
+
+	LCD_hw_reset();
+	// adjust control 3
+	ILI9844_write_command(ILI9844_SOFTWARE_RESET); // ILI9844_SOFTWARE_RESET
+	HAL_Delay(10);
+
+	// sleep out
+	ILI9844_write_command(ILI9844_SLEEP_OUT); // ILI9844_SLEEP_OUT
+	HAL_Delay(120);
+
+	// memory access control (MADCTL)
+	ILI9844_write_command(ILI9844_MEMORY_ACCESS_CONTROL);
+	ILI9844_write_data8(0x08);
+
+	// frame rate control 1
+	//	    ILI9844_write_command(0xB1);          // ILI9844_FRAME_RATE_CONTROL_1
+	//	    ILI9844_write_data8(0x00);
+	//	    ILI9844_write_data8(0x1B);
+
+	//	     display function control
+	ILI9844_write_command(ILI9844_DISPLAY_FUNCTION_CONTROL); // ILI9844_DISPLAY_FUNCTION_CONTROL
+	ILI9844_write_data8(0x30);
+	ILI9844_write_data8(0x22);
+	ILI9844_write_data8(0x3B);
+
+	//	    ILI9844_write_command(0xB6);
+	//	    ILI9844_write_data8(0x30);   // BYPASS=0, RCM=0(DE), RM=1(RGB->GRAM), DM=1(DOTCLK)
+	//	    ILI9844_write_data8(0x02);   // как в даташите
+	//	    ILI9844_write_data8(0x3B);   // как в даташите для 320x480
+
+	// pixel format = 18-bit (0x66)
+	ILI9844_write_command(ILI9844_PIXEL_FORMAT_SET); // ILI9844_PIXEL_FORMAT_SET
+	ILI9844_write_data8(0x55);
+
+	ILI9844_write_command(ILI9488_INVON); // Invert
+	HAL_Delay(10);
+
+	// RGB interface control
+	ILI9844_write_command(ILI9844_RGB_INTERFACE_CONTROL); // ILI9844_RGB_INTERFACE_CONTROL
+	ILI9844_write_data8(0x00);
+
+	// display on
+	ILI9844_write_command(ILI9844_DISPLAY_ON); // ILI9844_DISPLAY_ON
+	HAL_Delay(120);
+
+	// interface control (F6) - "select RGB interface" как в примере
+	//	    ILI9844_write_command(ILI9844_INTERFACE_CONTROL);          // ILI9844_INTERFACE_CONTROL
+	//	    ILI9844_write_data8(0x01);
+	//	    ILI9844_write_data8(0x00);
+	//	    ILI9844_write_data8(0x06);
+}
 /* USER CODE END 1 */

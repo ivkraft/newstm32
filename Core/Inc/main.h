@@ -69,7 +69,8 @@ void Error_Handler(void);
 #define LED_GPIO_Port GPIOH
 
 /* USER CODE BEGIN Private defines */
-
+extern const uint8_t fnt_wang_8x8[];
+extern const uint8_t fnt_wang_8x16[];
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

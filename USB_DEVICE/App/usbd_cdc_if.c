@@ -317,6 +317,30 @@ static int8_t CDC_TransmitCplt_FS(uint8_t *Buf, uint32_t *Len, uint8_t epnum)
 
 /* USER CODE BEGIN PRIVATE_FUNCTIONS_IMPLEMENTATION */
 
+uint8_t USB_Log(char *str)
+{
+	uint8_t result;
+
+	// Проверяем, что USB вообще сконфигурирован хостом
+	extern USBD_HandleTypeDef hUsbDeviceFS;
+	if (hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED)
+	{
+		return 1;
+	}
+
+	// Пытаемся отправить данные
+	result = CDC_Transmit_FS((uint8_t *)str, strlen(str));
+
+	if (result == USBD_OK)
+	{
+		return 0; // Всё ушло в буфер
+	}
+	else
+	{
+		return 1; // Занято (USBD_BUSY) или ошибка
+	}
+}
+
 /* USER CODE END PRIVATE_FUNCTIONS_IMPLEMENTATION */
 
 /**

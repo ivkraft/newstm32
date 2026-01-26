@@ -35,7 +35,12 @@ extern "C" {
 extern LTDC_HandleTypeDef hltdc;
 
 /* USER CODE BEGIN Private defines */
+#define LCD_WIDTH  480
+#define LCD_HEIGHT 320
+#define SDRAM_BASE 0xC0000000
 
+#define FONT_W     8
+#define FONT_H     16
 /* USER CODE END Private defines */
 
 void MX_LTDC_Init(void);

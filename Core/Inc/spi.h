@@ -35,13 +35,24 @@ extern "C" {
 extern SPI_HandleTypeDef hspi3;
 
 /* USER CODE BEGIN Private defines */
-
+#define ILI9844_SOFTWARE_RESET 0x01
+#define ILI9844_SLEEP_OUT 0x11
+#define ILI9844_DISPLAY_OFF 0x28
+#define ILI9844_DISPLAY_ON 0x29
+#define ILI9844_MEMORY_ACCESS_CONTROL 0x36
+#define ILI9844_PIXEL_FORMAT_SET 0x3A
+#define ILI9844_FRAME_RATE_CONTROL_1 0xB1
+#define ILI9844_DISPLAY_FUNCTION_CONTROL 0xB6
+#define ILI9844_RGB_INTERFACE_CONTROL 0xB0
+#define ILI9844_INTERFACE_CONTROL 0xF6
+#define ILI9488_INVOFF 0x20 ///< Display Inversion OFF
+#define ILI9488_INVON 0x21	///< Display Inversion ON
 /* USER CODE END Private defines */
 
 void MX_SPI3_Init(void);
 
 /* USER CODE BEGIN Prototypes */
-
+void ILI9844_SPI_init(void);
 /* USER CODE END Prototypes */
 
 #ifdef __cplusplus
