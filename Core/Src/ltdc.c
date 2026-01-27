@@ -43,23 +43,19 @@ hltdc.Instance = LTDC;
   hltdc.Init.HSPolarity = LTDC_HSPOLARITY_AL;
   hltdc.Init.VSPolarity = LTDC_VSPOLARITY_AL;
   hltdc.Init.DEPolarity = LTDC_DEPOLARITY_AL;
-  hltdc.Init.PCPolarity = LTDC_PCPOLARITY_IIPC; // Твоя полярность
+  hltdc.Init.PCPolarity = LTDC_PCPOLARITY_IPC; // Твоя полярность
   
-  // Увеличиваем Sync и Porches, чтобы контроллер ILI успевал «дышать»
-  hltdc.Init.HorizontalSync = 9;   // Было 2, ставим 9
-  hltdc.Init.VerticalSync = 1;     // Было 0, ставим хотя бы 1 (ОБЯЗАТЕЛЬНО)
+  hltdc.Init.HorizontalSync = 2;   // Было 2, ставим 9
+  hltdc.Init.VerticalSync = 0;     // Было 0, ставим хотя бы 1 (ОБЯЗАТЕЛЬНО)
 
-  // Accumulated Back Porch (Sync + BP)
-  hltdc.Init.AccumulatedHBP = 29;  // Было 5, ставим 29
-  hltdc.Init.AccumulatedVBP = 3;   // Было 2, ставим 3
+  hltdc.Init.AccumulatedHBP = 5;  // Было 5, ставим 29
+  hltdc.Init.AccumulatedVBP = 2;   // Было 2, ставим 3
 
-  // Accumulated Active Area (Sync + BP + Active)
-  hltdc.Init.AccumulatedActiveW = 349; // 29 + 320 = 349
-  hltdc.Init.AccumulatedActiveH = 483; // 3 + 480 = 483
+  hltdc.Init.AccumulatedActiveW = 325; // 29 + 320 = 349
+  hltdc.Init.AccumulatedActiveH = 482; // 3 + 480 = 483
 
-  // Total Display Size (Sync + BP + Active + FP)
-  hltdc.Init.TotalWidth = 359;     // 349 + 10 (Front Porch)
-  hltdc.Init.TotalHeigh = 485;     // 483 + 2 (Front Porch)
+  hltdc.Init.TotalWidth = 328;     // 349 + 10 (Front Porch)
+  hltdc.Init.TotalHeigh = 484;     // 483 + 2 (Front Porch)
   hltdc.Init.Backcolor.Blue = 0;
   hltdc.Init.Backcolor.Green = 0;
   hltdc.Init.Backcolor.Red = 0;
@@ -68,12 +64,12 @@ hltdc.Instance = LTDC;
     Error_Handler();
   }
   pLayerCfg.WindowX0 = 0;
-  pLayerCfg.WindowX1 = 320;
+  pLayerCfg.WindowX1 = 319;
   pLayerCfg.WindowY0 = 0;
-  pLayerCfg.WindowY1 = 480;
+  pLayerCfg.WindowY1 = 479;
   pLayerCfg.PixelFormat = LTDC_PIXEL_FORMAT_RGB565;
   pLayerCfg.Alpha = 255;
-  pLayerCfg.Alpha0 = 255;
+  pLayerCfg.Alpha0 = 0;
   pLayerCfg.BlendingFactor1 = LTDC_BLENDING_FACTOR1_CA;
   pLayerCfg.BlendingFactor2 = LTDC_BLENDING_FACTOR2_CA;
   pLayerCfg.FBStartAdress = 0xC0000000;

@@ -209,7 +209,7 @@ void ILI9844_SPI_init(void)
 
 	//	     display function control
 	ILI9844_write_command(ILI9844_DISPLAY_FUNCTION_CONTROL); // ILI9844_DISPLAY_FUNCTION_CONTROL
-	ILI9844_write_data8(0x30);
+	ILI9844_write_data8(0x20);
 	ILI9844_write_data8(0x22);
 	ILI9844_write_data8(0x3B);
 
@@ -231,6 +231,125 @@ void ILI9844_SPI_init(void)
 
 	// display on
 	ILI9844_write_command(ILI9844_DISPLAY_ON); // ILI9844_DISPLAY_ON
+	HAL_Delay(120);
+
+	// interface control (F6) - "select RGB interface" как в примере
+	//	    ILI9844_write_command(ILI9844_INTERFACE_CONTROL);          // ILI9844_INTERFACE_CONTROL
+	//	    ILI9844_write_data8(0x01);
+	//	    ILI9844_write_data8(0x00);
+	//	    ILI9844_write_data8(0x06);
+}
+
+
+void ILI9844_SPI_init2(void)
+{
+
+
+	LCD_hw_reset();
+	// adjust control 3
+//adjust control 3
+	ILI9844_write_command(0XF7);
+	ILI9844_write_data8(0xA9);
+	ILI9844_write_data8(0x51);
+	ILI9844_write_data8(0x2C);
+	ILI9844_write_data8(0x82);
+
+	//power control 1
+	ILI9844_write_command(0xC0);
+	ILI9844_write_data8(0x11);
+	ILI9844_write_data8(0x09);
+
+	//power control 2
+	ILI9844_write_command(0xC1);
+	ILI9844_write_data8(0x41);
+
+	//VCOM cotrol
+	ILI9844_write_command(0XC5);
+	ILI9844_write_data8(0x00);
+	ILI9844_write_data8(0x2A);
+	ILI9844_write_data8(0x80);
+
+	//Frame Rate Control (In Normal Mode/Full Colors)
+	ILI9844_write_command(0xB1);
+	ILI9844_write_data8(0xB0);
+	ILI9844_write_data8(0x11);
+
+	//Display Inversion Control
+	ILI9844_write_command(0xB4);
+	ILI9844_write_data8(0x02);
+
+	//Display Function Control
+	ILI9844_write_command(0xB6);
+	ILI9844_write_data8(0x20);
+	ILI9844_write_data8(0x22);
+
+	//Entry Mode Set
+	ILI9844_write_command(0xB7);
+	ILI9844_write_data8(0xc6);
+
+	//HS Lanes Control
+	ILI9844_write_command(0xBE);
+	ILI9844_write_data8(0x00);
+	ILI9844_write_data8(0x04);
+
+	//Set Image Function
+	ILI9844_write_command(0xE9);
+	ILI9844_write_data8(0x00);
+
+	//Memory Access Control
+	ILI9844_write_command(0x36);
+	ILI9844_write_data8(0x08);
+
+	//Interface Pixel Format
+	ILI9844_write_command(0x3A);
+	ILI9844_write_data8(0x55);
+
+	//PGAMCTRL (Positive Gamma Control)
+	ILI9844_write_command(0xE0);
+	ILI9844_write_data8(0x00);
+	ILI9844_write_data8(0x07);
+	ILI9844_write_data8(0x12);
+	ILI9844_write_data8(0x0B);
+	ILI9844_write_data8(0x18);
+	ILI9844_write_data8(0x0B);
+	ILI9844_write_data8(0x3F);
+	ILI9844_write_data8(0x9B);
+	ILI9844_write_data8(0x4B);
+	ILI9844_write_data8(0x0B);
+	ILI9844_write_data8(0x0F);
+	ILI9844_write_data8(0x0B);
+	ILI9844_write_data8(0x15);
+	ILI9844_write_data8(0x17);
+	ILI9844_write_data8(0x0F);
+
+	//NGAMCTRL (Negative Gamma Control)
+	ILI9844_write_command(0XE1);
+	ILI9844_write_data8(0x00);
+	ILI9844_write_data8(0x16);
+	ILI9844_write_data8(0x1B);
+	ILI9844_write_data8(0x02);
+	ILI9844_write_data8(0x0F);
+	ILI9844_write_data8(0x06);
+	ILI9844_write_data8(0x34);
+	ILI9844_write_data8(0x46);
+	ILI9844_write_data8(0x48);
+	ILI9844_write_data8(0x04);
+	ILI9844_write_data8(0x0D);
+	ILI9844_write_data8(0x0D);
+	ILI9844_write_data8(0x35);
+	ILI9844_write_data8(0x36);
+	ILI9844_write_data8(0x0F);
+
+  	ILI9844_write_command(ILI9488_INVON); // Invert
+	HAL_Delay(10);
+
+	//Sleep OUT
+	ILI9844_write_command(0x11);
+
+	HAL_Delay(120);
+
+	//Display ON
+	ILI9844_write_command(0x29);
 	HAL_Delay(120);
 
 	// interface control (F6) - "select RGB interface" как в примере

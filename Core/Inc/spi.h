@@ -53,6 +53,8 @@ void MX_SPI3_Init(void);
 
 /* USER CODE BEGIN Prototypes */
 void ILI9844_SPI_init(void);
+void ILI9844_SPI_init2(void);
+
 /* USER CODE END Prototypes */
 
 #ifdef __cplusplus

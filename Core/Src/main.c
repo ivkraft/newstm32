@@ -47,60 +47,15 @@ uint16_t *frame_buffers[2] = {
     (uint16_t *)(SDRAM_BASE + (LCD_WIDTH * LCD_HEIGHT * 2))   // FB2
 };
 
+extern void pixmap8x16(uint16_t color, void *out_fb, void *pixmap);
+extern void pixmap8x8(uint16_t color, void *out_fb, void *pixmap);
+
 uint8_t current_buffer = 0; // Какой буфер сейчас рисуем
 
 int cursor_x = 0;
 int cursor_y = 0;
 
- void draw_char_8x16(int x, int y, char c, uint16_t color, uint16_t *fb) { 
-     // Вычисляем адрес начала символа в массиве 
-     // c * 16, так как каждый символ занимает 16 байт 
-     const uint8_t *glyph = &fnt_wang_8x16[(uint8_t)c * 16]; 
 
-     for (int i = 0; i < 16; i++) { // Проход по строкам (высота 16) 
-         uint8_t row_data = glyph[i]; 
-          
-         for (int j = 0; j < 8; j++) { // Проход по битам (ширина 8) 
-             // В VGA шрифтах самый левый пиксель — это старший бит (0x80) 
-             if (row_data & (0x80 >> j)) { 
-                 // Простейшая проверка границ, чтобы не "повесить" H7 
-                 if ((x + j) < LCD_HEIGHT && (y + i) < LCD_WIDTH) { 
-                     fb[(y + i) * LCD_HEIGHT + (x + j)] = color; 
-                 } 
-             } 
-         } 
-     } 
- }   
-
-int _write(int file, char *ptr, int len) {
-    uint16_t *fb = frame_buffers[current_buffer & 1];
-
-    for (int i = 0; i < len; i++) {
-        if (ptr[i] == '\n') {
-            cursor_x = 0;
-            cursor_y += FONT_H;
-        } 
-        else if (ptr[i] == '\r') {
-            cursor_x = 0;
-        }
-        else {
-            draw_char_8x16(cursor_x, cursor_y, ptr[i], 0xFFFF, fb);
-            cursor_x += FONT_W;
-        }
-
-        // Автоперенос на новую строку по ширине
-        if (cursor_x > (LCD_WIDTH - FONT_W)) {
-            cursor_x = 0;
-            cursor_y += FONT_H;
-        }
-        
-        // Сброс в начало экрана по высоте
-        if (cursor_y > (LCD_HEIGHT - FONT_H)) {
-            cursor_y = 0;
-        }
-    }
-    return len;
-}
 
 void screen_clear(uint16_t color) {
     // Дублируем 16-бит цвет в 32-битную переменную
@@ -146,8 +101,7 @@ static void MPU_Config(void);
 
 
 
-void draw_rect(int x, int y, int w, int h, uint16_t color) {
-    uint16_t *fb = frame_buffers[current_buffer];
+void draw_rect(uint16_t *fb,int x, int y, int w, int h, uint16_t color) {
     
     for (int i = y; i < y + h; i++) {
         // Если строка вне экрана — пропускаем её
@@ -159,6 +113,59 @@ void draw_rect(int x, int y, int w, int h, uint16_t color) {
             
             fb[i * 320 + j] = color;
         }
+    }
+}
+
+void draw_char(uint16_t *fb, int x, int y, uint16_t color, uint8_t ch) {
+    // Используем твои объявленные переменные
+    // Смещение: каждый символ в 8x16 занимает ровно 16 байт
+    const uint8_t *char_ptr = &fnt_wang_8x16[ch * 16];
+    
+    for (int i = 0; i < 16; i++) {
+        uint8_t row = char_ptr[i];
+        
+        // Рисуем строку из 8 пикселей
+        for (int bit = 0; bit < 8; bit++) {
+            // Если бит установлен — рисуем пиксель цвета color
+            // Если нет — ничего не делаем (прозрачный фон)
+            if (row & (0x80 >> bit)) {
+                // ВАЖНО: Проверь, что LCD_WIDTH равен Active Width из настроек LTDC
+                fb[(y + i) * 320 -1 + (x + bit)] = color;
+            }
+        }
+    }
+}
+
+void print_string(uint16_t *fb, int x, int y, uint16_t color, const char *str) {
+    int cur_x = x;
+    int cur_y = y;
+
+    while (*str) {
+        // 1. Проверяем на символ новой строки
+        if (*str == '\n') {
+            cur_x = x;      // Возвращаемся к начальному X
+            cur_y += 16;    // Переходим на 16 пикселей вниз
+            str++;
+            continue;
+        }
+
+        // 2. Проверяем, не вылезем ли мы за край экрана (320 пикселей)
+        if (cur_x > 320 - 8) {
+            cur_x = x;      // Перенос по достижении края
+            cur_y += 16;
+        }
+
+        // 3. Проверяем, не вылезем ли за нижний край (480 пикселей)
+        if (cur_y > 480 - 16) {
+            break; // Экран кончился
+        }
+
+        // 4. Рисуем символ
+        draw_char(fb, cur_x, cur_y, color, (uint8_t)*str);
+
+        // 5. Сдвигаемся вправо и к следующему символу
+        cur_x += 8;
+        str++;
     }
 }
 
@@ -186,7 +193,7 @@ int main(void)
   /* Enable the CPU Cache */
 
   /* Enable I-Cache---------------------------------------------------------*/
-  SCB_EnableICache();
+  //SCB_EnableICache();
 
   /* Enable D-Cache---------------------------------------------------------*/
  // SCB_EnableDCache();
@@ -261,64 +268,63 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-int dx = 1;
-int dy = 1;
-  int x = 50; 
-int y = 50;
+
 int rect_size = 40;
  uint16_t *draw_fb1 = frame_buffers[0];
     memset(draw_fb1, 0, 320 * 480 * 2); 
      uint16_t *draw_fb2 = frame_buffers[1];
     memset(draw_fb2, 0, 320 * 480 * 2); 
-uint32_t frame_count = 0;
-uint32_t last_time = 0;
-uint32_t fps_val = 0;
-	while (1)
-   /* USER CODE BEGIN 3 */
-{
-// 2. Внутри цикла while(1)
-frame_count++;
-if (HAL_GetTick() - last_time >= 1000) {
-    fps_val = frame_count;
-    frame_count = 0;
-    last_time = HAL_GetTick();
-}
 
-// 3. Вывод
+    uint16_t color = 0xF800; // Красный (RGB565)
+    int x = 10;
+    int y = 10;
+    int dx = 1;
+    int dy = 1;
 
+while (1) {
+    // 1. Выбираем буфер, который сейчас НЕ отображается (Back Buffer)
+    uint8_t back_idx = !current_buffer;
+    uint16_t *draw_fb = frame_buffers[back_idx];
 
-      uint16_t *draw_fb = frame_buffers[current_buffer & 1];
+    // 2. Очистка экрана (чтобы текст не накладывался друг на друга)
+    // Используем memset (быстрее) или простой цикл
+    memset(draw_fb, 0, LCD_WIDTH * LCD_HEIGHT * 2);
 
-      //screen_clear(0x0000); // Черный фон
-    memset(draw_fb, 0, 320 * 480 * 2); 
-
-
-
-    // 3. Рассчитываем новую позицию (общую для логики)
+  
+if (x + rect_size >= LCD_HEIGHT-1 || x <= 0) {
+        dx = -dx; // Меняем направление по X
+    }
     x += dx;
+
+    if (y + rect_size >= LCD_WIDTH-1 || y <= 0) {
+        dy = -dy; // Меняем направление по Y
+    }
     y += dy;
-    if (x <= 0 || x + rect_size >= 319) dx = -dx;
-    if (y <= 0 || y + rect_size >= 479) dy = -dy;
 
-    // 4. РИСУЕМ новый зеленый квадрат
-    draw_rect(x, y, rect_size, rect_size, 0x07E0);
-
-cursor_x = 10; cursor_y = 10;
-
-printf("FPS: %u\n", (unsigned int)fps_val);
-   
+draw_rect(draw_fb, x, y, rect_size, rect_size, color);
 
 
-    // Синхронизация и вывод
+    // draw_char(draw_fb, 100, 100, 0x07E0, 87);        
+    // draw_char(draw_fb, 100+8, 100, 0x07E0, 88);        
+    print_string(draw_fb, 50, 50, 0x07E0, "Hello, STM32H7!\nThis is a test of\nLTDC with double buffering.\nEnjoy coding!");    
+
+
+    // 4. СБРОС КЭША (КРИТИЧНО для STM32H7)
+    // CPU записал данные в кэш, нужно вытолкнуть их в SDRAM, чтобы LTDC их увидел
+  //  SCB_CleanDCache_by_Addr((uint32_t *)draw_fb, LCD_WIDTH * LCD_HEIGHT * 2);
+
+    // 5. Переключаем адрес в LTDC
+    HAL_LTDC_SetAddress_NoReload(&hltdc, (uint32_t)draw_fb, 0);
+    HAL_LTDC_Reload(&hltdc, LTDC_RELOAD_VERTICAL_BLANKING);
+
+    // 6. Ждем завершения VSync (когда адрес реально применится)
+    while ((hltdc.Instance->SRCR & LTDC_RELOAD_VERTICAL_BLANKING) != 0);
+
+    // 7. Меняем индекс для следующей итерации
+    current_buffer = back_idx;
     
-    HAL_LTDC_SetAddress_NoReload(&hltdc, (uint32_t)draw_fb, 0); 
-		HAL_LTDC_Reload(&hltdc, LTDC_RELOAD_VERTICAL_BLANKING);
-
-		while ((hltdc.Instance->SRCR & LTDC_RELOAD_VERTICAL_BLANKING) != 0) {}    //USB_Log("go");
-    current_buffer = !current_buffer;
-
-  // HAL_Delay(30);
-  }
+   // HAL_Delay(100);
+}
   /* USER CODE END 3 */
 }
 

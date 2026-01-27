@@ -42,6 +42,7 @@ set(MX_Application_Src
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/syscalls.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../startup_stm32h743xx.s
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Fonts/font.s
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Fonts/pixmap.s
 
 )
 
