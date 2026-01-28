@@ -8,6 +8,8 @@ set(MX_Defines_Syms
 	STM32H743xx
     $<$<CONFIG:Debug>:DEBUG>
 )
+target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE
+    $<$<COMPILE_LANGUAGE:C,CXX>:-fomit-frame-pointer>)
 
 # STM32CubeMX generated include paths
 set(MX_Include_Dirs

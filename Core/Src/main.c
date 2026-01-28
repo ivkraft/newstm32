@@ -57,29 +57,101 @@ int cursor_y = 0;
 
 
 
-void screen_clear(uint16_t color) {
-    // Дублируем 16-бит цвет в 32-битную переменную
-    uint32_t color32 = color | (color << 16);
-    uint16_t *fb = frame_buffers[current_buffer&1];
-    uint32_t count = 4800; // (320 * 480 * 2) / 64
+#include <stdint.h>
 
-    __asm__ __volatile__ (
-        "mov r0, %[clr]\n\t"
-        "mov r1, %[clr]\n\t"
-        "mov r2, %[clr]\n\t"
-        "mov r3, %[clr]\n\t"
-    "1:\n\t"
-        "stm %[fb]!, {r0-r3}\n\t" // 16 байт
-        "stm %[fb]!, {r0-r3}\n\t" // 16 байт
-        "stm %[fb]!, {r0-r3}\n\t" // 16 байт
-        "stm %[fb]!, {r0-r3}\n\t" // 16 байт
-        "subs %[cnt], %[cnt], #1\n\t"
-        "bne 1b\n\t"
-        : [fb] "+r" (fb), [cnt] "+r" (count)
-        : [clr] "r" (color32)
-        : "r0", "r1", "r2", "r3", "cc", "memory"
-    );
+#define FB_W 480u
+#define FB_H 320u
+
+static inline void dma2d_init_once(void)
+{
+    // DMA2D clock enable (на H7 это AHB3)
+    RCC->AHB3ENR |= RCC_AHB3ENR_DMA2DEN;
+    (void)RCC->AHB3ENR; // небольшая задержка на запись
+
+    // На всякий: сбросить/очистить флаги
+    DMA2D->CR = 0;
+    DMA2D->IFCR = 0x3F; // CTC|CCE|CTE|CAE|CTW|CL
 }
+
+static inline void dma2d_fill_rgb565(uint16_t *fb,
+                                     uint16_t color,
+                                     uint32_t width,
+                                     uint32_t height,
+                                     uint32_t stride_pixels) // обычно = width
+{
+    // Ждём, если DMA2D занят
+    while (DMA2D->CR & DMA2D_CR_START) { /* spin */ }
+
+    // Очистить флаги
+    DMA2D->IFCR = 0x3F;
+
+    // Режим: Register-to-Memory
+    DMA2D->CR = (DMA2D->CR & ~DMA2D_CR_MODE) | (0x3u << DMA2D_CR_MODE_Pos);
+
+    // Куда пишем
+    DMA2D->OMAR = (uint32_t)fb;
+
+    // Формат выхода: RGB565 (в DMA2D это обычно "2")
+    // В H7: 0=ARGB8888, 1=RGB888, 2=RGB565, 3=ARGB1555, 4=ARGB4444
+    DMA2D->OPFCCR = 2u;
+
+    // Цвет (для RGB565 достаточно младших 16 бит)
+    DMA2D->OCOLR = (uint32_t)color;
+
+    // Output offset: сколько пикселей пропустить в конце каждой строки
+    // (stride - width) в ПИКСЕЛЯХ, не в байтах
+    DMA2D->OOR = (stride_pixels - width);
+
+    // Размер: NLR = (pixels per line) | (number of lines << 16)
+    DMA2D->NLR = (width & 0x3FFFu) | ((height & 0x3FFFu) << 16);
+
+    // Старт
+    DMA2D->CR |= DMA2D_CR_START;
+
+    // Ждём завершение (можно и по IRQ)
+    while ((DMA2D->ISR & DMA2D_ISR_TCIF) == 0) { /* spin */ }
+
+    // Сбросить TC флаг
+    DMA2D->IFCR = DMA2D_IFCR_CTCIF;
+
+    __asm__ volatile("dsb 0xF" ::: "memory"); // чтобы записи точно “дошли” до SDRAM
+}
+
+static inline void screen_clear(uint16_t *fb, uint16_t color)
+{
+    // Пишем 32-битными словами: 0xCCCCCCCC где C = RGB565
+    uint32_t *p   = (uint32_t*)fb;
+    uint32_t pat  = (uint32_t)color | ((uint32_t)color << 16);
+
+    // 4x stm {r0-r7} = 4 * 8 * 4 = 128 байт за итерацию
+    uint32_t cnt  = (FB_W * FB_H * 2u) / 128u;   // для 480x320 => 2400
+
+    __asm__ volatile(
+        "mov    r0, %[pat]          \n\t"
+        "mov    r1, r0              \n\t"
+        "mov    r2, r0              \n\t"
+        "mov    r3, r0              \n\t"
+        "mov    r4, r0              \n\t"
+        "mov    r5, r0              \n\t"
+        "mov    r6, r0              \n\t"
+        "mov    r7, r0              \n\t"
+        "1:                         \n\t"
+        "stmia  %[p]!, {r0-r7}      \n\t"
+        "stmia  %[p]!, {r0-r7}      \n\t"
+        "stmia  %[p]!, {r0-r7}      \n\t"
+        "stmia  %[p]!, {r0-r7}      \n\t"
+        "subs   %[cnt], %[cnt], #1  \n\t"
+        "bne    1b                  \n\t"
+        : [p]   "+r"(p),
+          [cnt] "+r"(cnt)
+        : [pat] "r"(pat)
+        : "r0","r1","r2","r3","r4","r5","r6","r7","cc","memory"
+    );
+
+    // Для внешней памяти (FMC/SDRAM) часто полезно:
+    __asm__ volatile("dsb 0xF" ::: "memory");   // __DSB();
+}
+
 
 /* USER CODE END PD */
 
@@ -288,9 +360,12 @@ while (1) {
 
     // 2. Очистка экрана (чтобы текст не накладывался друг на друга)
     // Используем memset (быстрее) или простой цикл
-    memset(draw_fb, 0, LCD_WIDTH * LCD_HEIGHT * 2);
-
+   // memset(draw_fb, 0, LCD_WIDTH * LCD_HEIGHT * 2);
+//screen_clear(draw_fb, 0x0000);
   
+dma2d_init_once();
+dma2d_fill_rgb565(draw_fb, 0x0000, 480, 320, 480);
+
 if (x + rect_size >= LCD_HEIGHT-1 || x <= 0) {
         dx = -dx; // Меняем направление по X
     }
